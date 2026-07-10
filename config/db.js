@@ -7,7 +7,7 @@ console.log('Database configuration:', process.env.DB_PASSWORD, process.env.DB_N
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: 'arthur30@22#',
+  password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || 'farmguard',
   waitForConnections: true,
   connectionLimit: 10,
