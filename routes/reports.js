@@ -1,7 +1,9 @@
 import express from 'express';
 import { query } from '../config/db.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
+router.use(authenticateToken);
 
 const statusColors = {
   CRITICAL: '#DC2626',

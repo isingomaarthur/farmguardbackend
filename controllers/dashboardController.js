@@ -19,6 +19,19 @@ export const getDashboard = async (req, res, next) => {
       const [recentUsersResult] = await query(
         'SELECT COUNT(*) AS recentUsers FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)'
       );
+      const [sensorCountResult] = await query('SELECT COUNT(*) AS totalSensors FROM sensors');
+      const [activeSensorCountResult] = await query(
+        "SELECT COUNT(*) AS activeSensors FROM sensors WHERE is_active = 1"
+      );
+      const [openAlertsResult] = await query(
+        "SELECT COUNT(*) AS activeAlerts FROM alerts WHERE status != 'NORMAL'"
+      );
+      const [recentAlertsResult] = await query(
+        'SELECT COUNT(*) AS recentAlerts FROM alerts WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)'
+      );
+      const recentNotifications = await query(
+        'SELECT id, title, message, status, created_at FROM alerts ORDER BY created_at DESC LIMIT 5'
+      );
 
       return res.status(200).json({
         success: true,
@@ -28,6 +41,13 @@ export const getDashboard = async (req, res, next) => {
             totalUsers: userCountResult.totalUsers,
             activeUsers: activeUsersResult.activeUsers,
             recentUsers: recentUsersResult.recentUsers
+          },
+          adminOverview: {
+            totalSensors: sensorCountResult.totalSensors,
+            activeSensors: activeSensorCountResult.activeSensors,
+            activeAlerts: openAlertsResult.activeAlerts,
+            recentAlerts: recentAlertsResult.recentAlerts,
+            recentNotifications
           }
         }
       });

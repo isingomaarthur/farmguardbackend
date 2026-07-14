@@ -1,5 +1,6 @@
 import express from 'express';
 import { query } from '../config/db.js';
+import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ const formatSensorRow = (row) => ({
   isActive: Boolean(row.is_active)
 });
 
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const rows = await query('SELECT * FROM sensors WHERE is_active = 1');
     return res.json(rows.map(formatSensorRow));
@@ -28,7 +29,7 @@ router.get('/', async (req, res) => {
 });
 
 // Get node by ID
-router.get('/:nodeId', async (req, res) => {
+router.get('/:nodeId', authenticateToken, async (req, res) => {
   try {
     const [row] = await query('SELECT * FROM sensors WHERE node_id = ? LIMIT 1', [req.params.nodeId]);
     if (!row) {
@@ -42,7 +43,7 @@ router.get('/:nodeId', async (req, res) => {
 });
 
 // Create new node
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, authorizeRoles('technician', 'admin'), async (req, res) => {
   try {
     const { nodeId, zone, type, x, y, thresholds } = req.body;
     if (!nodeId || !zone || !type) {
@@ -76,7 +77,7 @@ router.post('/', async (req, res) => {
 });
 
 // Update node position
-router.patch('/:nodeId/position', async (req, res) => {
+router.patch('/:nodeId/position', authenticateToken, authorizeRoles('technician', 'admin'), async (req, res) => {
   try {
     const { x, y } = req.body;
     if (x === undefined || y === undefined) {
@@ -100,7 +101,7 @@ router.patch('/:nodeId/position', async (req, res) => {
 });
 
 // Update node status
-router.patch('/:nodeId/status', async (req, res) => {
+router.patch('/:nodeId/status', authenticateToken, authorizeRoles('technician', 'admin'), async (req, res) => {
   try {
     const { status } = req.body;
     if (!status) {

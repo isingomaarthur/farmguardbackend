@@ -1,5 +1,6 @@
 import express from 'express';
 import { query } from '../config/db.js';
+import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -177,7 +178,7 @@ router.get('/:nodeId', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, authorizeRoles('technician', 'admin'), async (req, res) => {
   try {
     const { nodeId, zone, type, position, thresholds } = req.body;
     if (!nodeId || !zone || !type) {

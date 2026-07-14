@@ -48,6 +48,56 @@ export const updateUser = async (req, res, next) => {
   }
 };
 
+export const getAllUsers = async (req, res, next) => {
+  try {
+    const users = await User.findAll();
+    return res.status(200).json({
+      success: true,
+      users: users.map(createUserPayload)
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createUser = async (req, res, next) => {
+  try {
+    const { name, email, password, farmName, role } = req.body;
+    const allowedRoles = ['farmer', 'technician', 'agronomist', 'admin'];
+    const normalizedRole = (role || 'farmer').toString().trim().toLowerCase();
+    const normalizedEmail = email?.toString().trim().toLowerCase();
+
+    if (!name || !normalizedEmail || !password || !role) {
+      return res.status(400).json({ success: false, message: 'Name, email, password, and role are required' });
+    }
+
+    if (!allowedRoles.includes(normalizedRole)) {
+      return res.status(400).json({ success: false, message: 'Invalid role selected' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    }
+
+    const existing = await User.findByEmail(normalizedEmail);
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'A user with that email already exists' });
+    }
+
+    const user = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      password,
+      farmName: farmName?.trim() || 'My Farm',
+      role: normalizedRole
+    });
+
+    return res.status(201).json({ success: true, user: createUserPayload(user) });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const deleteUser = async (req, res, next) => {
   try {
     await User.delete(req.user.id);
@@ -56,8 +106,6 @@ export const deleteUser = async (req, res, next) => {
     next(error);
   }
 };
-
-export const getAllUsers = async (req, res, next) => {
   try {
     const users = await User.findAll();
     return res.status(200).json({

@@ -4,11 +4,15 @@ import { createUserPayload, generateToken } from '../services/authService.js';
 export const register = async (req, res, next) => {
   try {
     const { name, email, password, farmName, role } = req.body;
-    const allowedRoles = ['admin', 'farmer', 'technician', 'agronomist'];
+    const allowedRoles = ['farmer', 'technician', 'agronomist'];
     const normalizedRole = (role || 'farmer').toString().trim().toLowerCase();
 
     if (!name || !email || !password) {
       return res.status(400).json({ success: false, message: 'Name, email and password are required' });
+    }
+
+    if (normalizedRole === 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin registration is not permitted. Please contact an administrator.' });
     }
 
     if (!allowedRoles.includes(normalizedRole)) {
@@ -19,14 +23,15 @@ export const register = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
     }
 
-    const existingUser = await User.findByEmail(email);
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await User.findByEmail(normalizedEmail);
     if (existingUser) {
       return res.status(409).json({ success: false, message: 'A user with that email already exists' });
     }
 
     const user = await User.create({
       name: name.trim(),
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       password,
       farmName: farmName?.trim() || 'My Farm',
       role: normalizedRole
