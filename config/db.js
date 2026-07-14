@@ -23,7 +23,7 @@ export const initializeDatabase = async () => {
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL UNIQUE,
-        password VARCHAR(255) NOT NULL,
+        password VARCHAR(255) DEFAULT NULL,
         phone VARCHAR(50) DEFAULT NULL,
         address VARCHAR(500) DEFAULT NULL,
         profile_photo VARCHAR(500) DEFAULT NULL,
@@ -55,6 +55,7 @@ export const initializeDatabase = async () => {
     await addUserColumn("ALTER TABLE users ADD COLUMN address VARCHAR(500) DEFAULT NULL");
     await addUserColumn("ALTER TABLE users ADD COLUMN profile_photo VARCHAR(500) DEFAULT NULL");
     await addUserColumn("ALTER TABLE users ADD COLUMN notification_preferences JSON DEFAULT NULL");
+    await connection.execute(`ALTER TABLE users MODIFY COLUMN password VARCHAR(255) DEFAULT NULL`);
 
     await connection.execute(
       "CREATE TABLE IF NOT EXISTS sensors (\n" +

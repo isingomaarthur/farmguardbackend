@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "create-admin": "node ./scripts/create_demo_admin.js"
   },
   "dependencies": {
     "express": "^4.18.2",

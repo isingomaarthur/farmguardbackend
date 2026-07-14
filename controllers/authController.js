@@ -16,13 +16,25 @@ export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
     const user = await User.findByEmail(email.trim().toLowerCase());
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
+
+    if (!user.password) {
+      return res.status(200).json({
+        success: true,
+        token: generateToken(user),
+        user: createUserPayload(user)
+      });
+    }
+
+    if (!password) {
+      return res.status(400).json({ success: false, message: 'Password is required' });
     }
 
     const isValidPassword = await User.comparePassword(password, user.password);
@@ -65,7 +77,7 @@ export const demoLogin = async (req, res, next) => {
       user = await User.create({
         name: roleNames[normalizedRole],
         email,
-        password: 'Demo@1234',
+        password: null,
         farmName: `${normalizedRole.charAt(0).toUpperCase() + normalizedRole.slice(1)} Demo Farm`,
         role: normalizedRole
       });
@@ -116,8 +128,8 @@ export const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword, confirmPassword } = req.body;
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      return res.status(400).json({ success: false, message: 'All password fields are required' });
+    if (!newPassword || !confirmPassword) {
+      return res.status(400).json({ success: false, message: 'New password and confirmation are required' });
     }
 
     if (newPassword !== confirmPassword) {
@@ -133,9 +145,15 @@ export const changePassword = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const isValid = await User.comparePassword(currentPassword, user.password);
-    if (!isValid) {
-      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    if (user.password) {
+      if (!currentPassword) {
+        return res.status(400).json({ success: false, message: 'Current password is required' });
+      }
+
+      const isValid = await User.comparePassword(currentPassword, user.password);
+      if (!isValid) {
+        return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+      }
     }
 
     await User.updatePassword(req.user.id, newPassword);

@@ -3,7 +3,10 @@ import { query } from '../config/db.js';
 
 class User {
   static async create({ name, email, password, farmName, role = 'farmer' }) {
-    const hashedPassword = await bcrypt.hash(password, 10);
+    let hashedPassword = null;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
     const result = await query(
       'INSERT INTO users (name, email, password, farm_name, role) VALUES (?, ?, ?, ?, ?)',
       [name, email, hashedPassword, farmName, role]
