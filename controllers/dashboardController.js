@@ -54,84 +54,110 @@ export const getDashboard = async (req, res, next) => {
     }
 
     if (role === 'farmer') {
-      // Sensor counts by status
+      // Sensor counts for the demo farmer account
       const sensorsByStatus = await query(
-        "SELECT status, COUNT(*) AS count FROM sensors GROUP BY status"
+        "SELECT status, COUNT(*) AS count FROM sensors WHERE node_id LIKE 'FARM-%' GROUP BY status"
       );
 
-      // Current alerts for this user (unresolved)
+      const totalSensors = await query(
+        "SELECT COUNT(*) AS total FROM sensors WHERE node_id LIKE 'FARM-%'"
+      );
+
+      const activeSensors = await query(
+        "SELECT COUNT(*) AS active FROM sensors WHERE node_id LIKE 'FARM-%' AND is_active = 1"
+      );
+
+      // Current alerts for this user and farmer demo sensors
       const alerts = await query(
-        'SELECT id, title, message, status, type, node_id, is_read, created_at FROM alerts WHERE (user_id = ? OR user_id IS NULL) ORDER BY created_at DESC LIMIT 20',
+        'SELECT id, title, message, status, type, node_id, is_read, created_at FROM alerts WHERE (user_id = ? OR user_id IS NULL) AND node_id LIKE \'FARM-%\' ORDER BY created_at DESC LIMIT 20',
         [req.user.id]
       );
 
-      // Latest sensor readings (sample)
+      // Latest sensor readings from farmer demo sensors
       const recentReadings = await query(
-        "SELECT node_id, sensor_type, value, unit, status, timestamp FROM sensor_readings ORDER BY timestamp DESC LIMIT 20"
+        "SELECT node_id, sensor_type, value, unit, status, timestamp FROM sensor_readings WHERE node_id LIKE 'FARM-%' ORDER BY timestamp DESC LIMIT 20"
       );
 
       return res.status(200).json({
         success: true,
         dashboard: {
           user: userPayload,
+          stats: {
+            totalSensors: totalSensors[0]?.total || 0,
+            activeSensors: activeSensors[0]?.active || 0,
+            alertCount: alerts.length
+          },
           farmOverview: {
             sensorsByStatus,
             currentAlerts: alerts,
             recentReadings
-          },
-          features: {
-            weather: {},
-            soilConditions: {},
-            cropHealth: {},
-            waterUsage: {}
           }
         }
       });
     }
 
     if (role === 'agronomist') {
-      // Simple soil analysis aggregates
+      // Soil analysis aggregates for agronomist sensors
       const soilPh = await query(
-        "SELECT AVG(value) AS avgPh FROM sensor_readings WHERE sensor_type = 'ph'"
+        "SELECT AVG(value) AS avgPh FROM sensor_readings WHERE sensor_type = 'ph' AND node_id LIKE 'AGRO-%'"
       );
       const moisture = await query(
-        "SELECT AVG(value) AS avgMoisture FROM sensor_readings WHERE sensor_type = 'moisture'"
+        "SELECT AVG(value) AS avgMoisture FROM sensor_readings WHERE sensor_type = 'moisture' AND node_id LIKE 'AGRO-%'"
       );
 
-      // Recent pest alerts
-      const pestAlerts = await query("SELECT id, title, message, created_at FROM alerts WHERE type LIKE '%pest%' ORDER BY created_at DESC LIMIT 50");
+      const pestAlerts = await query(
+        "SELECT id, title, message, created_at FROM alerts WHERE type LIKE '%pest%' AND node_id LIKE 'AGRO-%' ORDER BY created_at DESC LIMIT 50"
+      );
+
+      const totalSensors = await query(
+        "SELECT COUNT(*) AS total FROM sensors WHERE node_id LIKE 'AGRO-%'"
+      );
 
       return res.status(200).json({
         success: true,
         dashboard: {
           user: userPayload,
+          stats: {
+            totalSensors: totalSensors[0]?.total || 0,
+            avgPh: soilPh[0]?.avgPh || null,
+            avgMoisture: moisture[0]?.avgMoisture || null,
+            pestAlertsCount: pestAlerts.length
+          },
           soilAnalysis: {
             avgPh: soilPh[0]?.avgPh || null,
             avgMoisture: moisture[0]?.avgMoisture || null,
             pestAlerts
-          },
-          cropManagement: {},
-          pestManagement: {}
+          }
         }
       });
     }
 
     if (role === 'technician') {
       const deviceStatus = await query(
-        "SELECT status, COUNT(*) AS count FROM sensors GROUP BY status"
+        "SELECT status, COUNT(*) AS count FROM sensors WHERE node_id LIKE 'TECH-%' GROUP BY status"
       );
 
-      const offlineDevices = await query("SELECT node_id, zone, status, battery_level FROM sensors WHERE is_active = 1 AND status != 'NORMAL' ORDER BY updated_at DESC LIMIT 100");
+      const offlineDevices = await query(
+        "SELECT node_id, zone, status, battery_level FROM sensors WHERE node_id LIKE 'TECH-%' AND is_active = 1 AND status != 'NORMAL' ORDER BY updated_at DESC LIMIT 100"
+      );
+
+      const totalDevices = await query(
+        "SELECT COUNT(*) AS total FROM sensors WHERE node_id LIKE 'TECH-%'"
+      );
 
       return res.status(200).json({
         success: true,
         dashboard: {
           user: userPayload,
+          stats: {
+            totalDevices: totalDevices[0]?.total || 0,
+            warningDevices: deviceStatus.find((item) => item.status === 'WARNING')?.count || 0,
+            criticalDevices: deviceStatus.find((item) => item.status === 'CRITICAL')?.count || 0
+          },
           deviceStatus: {
             deviceStatus,
             offlineDevices
-          },
-          maintenanceJobs: {}
+          }
         }
       });
     }
