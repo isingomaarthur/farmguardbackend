@@ -106,16 +106,6 @@ export const deleteUser = async (req, res, next) => {
     next(error);
   }
 };
-  try {
-    const users = await User.findAll();
-    return res.status(200).json({
-      success: true,
-      users: users.map(createUserPayload)
-    });
-  } catch (error) {
-    next(error);
-  }
-};
 
 export const deleteUserById = async (req, res, next) => {
   try {
