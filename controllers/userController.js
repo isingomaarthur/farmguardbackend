@@ -3,14 +3,27 @@ import { createUserPayload } from '../services/authService.js';
 
 export const updateUser = async (req, res, next) => {
   try {
-    const { name, farmName } = req.body;
+    const { name, farmName, email, phone, address, profilePhoto, notificationPreferences } = req.body;
     const updates = {};
 
-    if (name) updates.name = name.trim();
-    if (farmName) updates.farmName = farmName.trim();
+    if (name !== undefined) updates.name = name.toString().trim();
+    if (farmName !== undefined) updates.farmName = farmName.toString().trim();
+    if (email !== undefined) updates.email = email.toString().trim().toLowerCase();
+    if (phone !== undefined) updates.phone = phone.toString().trim();
+    if (address !== undefined) updates.address = address.toString().trim();
+    if (profilePhoto !== undefined) updates.profilePhoto = profilePhoto || null;
+    if (notificationPreferences !== undefined) updates.notificationPreferences = notificationPreferences;
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ success: false, message: 'No valid fields provided' });
+    }
+
+    // If email is being changed ensure it's not taken
+    if (updates.email) {
+      const existing = await User.findByEmail(updates.email);
+      if (existing && existing.id !== req.user.id) {
+        return res.status(409).json({ success: false, message: 'Email already in use' });
+      }
     }
 
     const updatedUser = await User.update(req.user.id, updates);
@@ -23,6 +36,10 @@ export const updateUser = async (req, res, next) => {
         name: updatedUser.name,
         email: updatedUser.email,
         farmName: updatedUser.farm_name,
+        phone: updatedUser.phone || null,
+        address: updatedUser.address || null,
+        profilePhoto: updatedUser.profile_photo || null,
+        notificationPreferences: updatedUser.notification_preferences ? JSON.parse(updatedUser.notification_preferences) : null,
         role: updatedUser.role
       }
     });

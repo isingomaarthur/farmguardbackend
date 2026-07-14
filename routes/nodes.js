@@ -1,67 +1,43 @@
 import express from 'express';
-import Sensor from '../models/Sensor.js';
+import { query } from '../config/db.js';
 
 const router = express.Router();
 
-// Get all nodes (sensor nodes map)
+const formatSensorRow = (row) => ({
+  id: row.node_id,
+  zone: row.zone,
+  type: row.sensor_type,
+  x: row.position_x || 0,
+  y: row.position_y || 0,
+  status: row.status,
+  currentValue: row.last_value,
+  unit: row.last_unit,
+  batteryLevel: row.battery_level,
+  signalStrength: row.signal_strength,
+  isActive: Boolean(row.is_active)
+});
+
 router.get('/', async (req, res) => {
   try {
-    try {
-      const nodes = await Sensor.find({ isActive: true }).select(
-        'nodeId zone type position status lastReading'
-      );
-
-      const formattedNodes = nodes.map(node => ({
-        id: node.nodeId,
-        zone: node.zone,
-        type: node.type,
-        x: node.position?.x || 0,
-        y: node.position?.y || 0,
-        status: node.status,
-        currentValue: node.lastReading?.value,
-        unit: node.lastReading?.unit
-      }));
-
-      return res.json(formattedNodes);
-    } catch (dbError) {
-      // Return mock nodes if database fails
-      console.log('Database unavailable, returning mock nodes data');
-      return res.json([
-        { id: "N1", zone: "North Field", type: "Soil Moisture", x: 22, y: 28, status: "NORMAL", currentValue: 44, unit: "%" },
-        { id: "N2", zone: "East Field", type: "Soil pH", x: 68, y: 22, status: "WARNING", currentValue: 6.3, unit: "pH" },
-        { id: "N3", zone: "South Field", type: "Soil Moisture", x: 40, y: 62, status: "CRITICAL", currentValue: 35, unit: "%" },
-        { id: "N4", zone: "West Field", type: "Humidity", x: 78, y: 70, status: "NORMAL", currentValue: 62, unit: "%" },
-        { id: "N5", zone: "Greenhouse", type: "Humidity", x: 15, y: 75, status: "NORMAL", currentValue: 68, unit: "%" }
-      ]);
-    }
+    const rows = await query('SELECT * FROM sensors WHERE is_active = 1');
+    return res.json(rows.map(formatSensorRow));
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('GET /nodes error', error);
+    return res.status(500).json({ success: false, message: 'Unable to load nodes' });
   }
 });
 
 // Get node by ID
 router.get('/:nodeId', async (req, res) => {
   try {
-    const node = await Sensor.findOne({ nodeId: req.params.nodeId });
-    
-    if (!node) {
-      return res.status(404).json({ error: 'Node not found' });
+    const [row] = await query('SELECT * FROM sensors WHERE node_id = ? LIMIT 1', [req.params.nodeId]);
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'Node not found' });
     }
-
-    res.json({
-      id: node.nodeId,
-      zone: node.zone,
-      type: node.type,
-      x: node.position?.x,
-      y: node.position?.y,
-      status: node.status,
-      currentValue: node.lastReading?.value,
-      unit: node.lastReading?.unit,
-      batteryLevel: node.batteryLevel,
-      signalStrength: node.signalStrength
-    });
+    return res.json(formatSensorRow(row));
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('GET /nodes/:nodeId error', error);
+    return res.status(500).json({ success: false, message: 'Unable to load node' });
   }
 });
 
@@ -69,19 +45,33 @@ router.get('/:nodeId', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { nodeId, zone, type, x, y, thresholds } = req.body;
+    if (!nodeId || !zone || !type) {
+      return res.status(400).json({ success: false, message: 'nodeId, zone, and type are required' });
+    }
 
-    const node = new Sensor({
-      nodeId,
-      zone,
-      type,
-      position: { x, y },
-      thresholds
-    });
+    await query(
+      `INSERT INTO sensors
+        (node_id, zone, sensor_type, position_x, position_y, threshold_warning_min, threshold_warning_max, threshold_critical_min, threshold_critical_max, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        nodeId,
+        zone,
+        type,
+        x || 0,
+        y || 0,
+        thresholds?.warning?.min || null,
+        thresholds?.warning?.max || null,
+        thresholds?.critical?.min || null,
+        thresholds?.critical?.max || null,
+        1
+      ]
+    );
 
-    await node.save();
-    res.status(201).json(node);
+    const [created] = await query('SELECT * FROM sensors WHERE node_id = ? LIMIT 1', [nodeId]);
+    return res.status(201).json(formatSensorRow(created));
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('POST /nodes error', error);
+    return res.status(500).json({ success: false, message: 'Unable to create node' });
   }
 });
 
@@ -89,20 +79,23 @@ router.post('/', async (req, res) => {
 router.patch('/:nodeId/position', async (req, res) => {
   try {
     const { x, y } = req.body;
-
-    const node = await Sensor.findOneAndUpdate(
-      { nodeId: req.params.nodeId },
-      { position: { x, y } },
-      { new: true }
-    );
-
-    if (!node) {
-      return res.status(404).json({ error: 'Node not found' });
+    if (x === undefined || y === undefined) {
+      return res.status(400).json({ success: false, message: 'x and y are required' });
     }
 
-    res.json(node);
+    await query(
+      'UPDATE sensors SET position_x = ?, position_y = ?, updated_at = CURRENT_TIMESTAMP WHERE node_id = ?',
+      [x, y, req.params.nodeId]
+    );
+
+    const [updated] = await query('SELECT * FROM sensors WHERE node_id = ? LIMIT 1', [req.params.nodeId]);
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Node not found' });
+    }
+    return res.json(formatSensorRow(updated));
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('PATCH /nodes/:nodeId/position error', error);
+    return res.status(500).json({ success: false, message: 'Unable to update node position' });
   }
 });
 
@@ -110,20 +103,23 @@ router.patch('/:nodeId/position', async (req, res) => {
 router.patch('/:nodeId/status', async (req, res) => {
   try {
     const { status } = req.body;
-
-    const node = await Sensor.findOneAndUpdate(
-      { nodeId: req.params.nodeId },
-      { status, isActive: status !== 'INACTIVE' },
-      { new: true }
-    );
-
-    if (!node) {
-      return res.status(404).json({ error: 'Node not found' });
+    if (!status) {
+      return res.status(400).json({ success: false, message: 'status is required' });
     }
 
-    res.json(node);
+    await query(
+      'UPDATE sensors SET status = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE node_id = ?',
+      [status, status !== 'INACTIVE' ? 1 : 0, req.params.nodeId]
+    );
+
+    const [updated] = await query('SELECT * FROM sensors WHERE node_id = ? LIMIT 1', [req.params.nodeId]);
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Node not found' });
+    }
+    return res.json(formatSensorRow(updated));
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('PATCH /nodes/:nodeId/status error', error);
+    return res.status(500).json({ success: false, message: 'Unable to update node status' });
   }
 });
 

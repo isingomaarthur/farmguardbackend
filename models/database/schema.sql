@@ -14,8 +14,12 @@ CREATE TABLE users (
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
+  phone VARCHAR(50) DEFAULT NULL,
+  address VARCHAR(500) DEFAULT NULL,
+  profile_photo VARCHAR(500) DEFAULT NULL,
   farm_name VARCHAR(255) DEFAULT NULL,
   role ENUM('admin', 'farmer', 'technician', 'agronomist') NOT NULL DEFAULT 'farmer',
+  notification_preferences JSON DEFAULT NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

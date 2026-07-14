@@ -21,5 +21,9 @@ export const createUserPayload = (user) => ({
   email: user.email,
   farmName: user.farm_name,
   role: user.role,
-  createdAt: user.created_at || user.createdAt || null
+  createdAt: user.created_at || user.createdAt || null,
+  phone: user.phone || null,
+  address: user.address || null,
+  profilePhoto: user.profile_photo || null,
+  notificationPreferences: user.notification_preferences ? JSON.parse(user.notification_preferences) : null
 });

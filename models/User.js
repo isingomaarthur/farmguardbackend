@@ -44,14 +44,39 @@ class User {
     const fields = [];
     const values = [];
 
-    if (updates.name) {
+    if (updates.name !== undefined) {
       fields.push('name = ?');
       values.push(updates.name);
     }
 
-    if (updates.farmName) {
+    if (updates.farmName !== undefined) {
       fields.push('farm_name = ?');
       values.push(updates.farmName);
+    }
+
+    if (updates.email !== undefined) {
+      fields.push('email = ?');
+      values.push(updates.email);
+    }
+
+    if (updates.phone !== undefined) {
+      fields.push('phone = ?');
+      values.push(updates.phone);
+    }
+
+    if (updates.address !== undefined) {
+      fields.push('address = ?');
+      values.push(updates.address);
+    }
+
+    if (updates.profilePhoto !== undefined) {
+      fields.push('profile_photo = ?');
+      values.push(updates.profilePhoto);
+    }
+
+    if (updates.notificationPreferences !== undefined) {
+      fields.push('notification_preferences = ?');
+      values.push(JSON.stringify(updates.notificationPreferences));
     }
 
     if (fields.length === 0) {
@@ -61,6 +86,12 @@ class User {
     values.push(id);
     await query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
     return this.findById(id);
+  }
+
+  static async updatePassword(id, newPassword) {
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await query('UPDATE users SET password = ? WHERE id = ?', [hashed, id]);
+    return true;
   }
 
   static async delete(id) {
