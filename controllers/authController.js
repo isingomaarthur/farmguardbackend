@@ -300,9 +300,55 @@ const createDemoDataForRole = async (role, userId) => {
 
 export const register = async (req, res, next) => {
   try {
-    return res.status(403).json({
-      success: false,
-      message: 'Self-registration is disabled. Please request an account from your administrator.'
+    const { name, email, password, confirmPassword, farmName } = req.body;
+
+    // Validation
+    if (!name || !email || !password || !confirmPassword || !farmName) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required'
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match'
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findByEmail(email.trim().toLowerCase());
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'User with this email already exists'
+      });
+    }
+
+    // Create new user
+    const newUser = await User.create({
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+      farmName: farmName.trim(),
+      role: 'farmer'
+    });
+
+    const token = generateToken(newUser);
+
+    return res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      token,
+      user: createUserPayload(newUser)
     });
   } catch (error) {
     next(error);
