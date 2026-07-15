@@ -300,7 +300,9 @@ const createDemoDataForRole = async (role, userId) => {
 
 export const register = async (req, res, next) => {
   try {
-    const { name, email, password, confirmPassword, farmName } = req.body;
+    const { name, email, password, confirmPassword, farmName, role } = req.body;
+    const allowedRoles = ['farmer', 'technician', 'agronomist', 'admin'];
+    const normalizedRole = (role || 'farmer').toString().trim().toLowerCase();
 
     // Validation
     if (!name || !email || !password || !confirmPassword || !farmName) {
@@ -324,6 +326,13 @@ export const register = async (req, res, next) => {
       });
     }
 
+    if (!allowedRoles.includes(normalizedRole)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid role selected'
+      });
+    }
+
     // Check if user already exists
     const existingUser = await User.findByEmail(email.trim().toLowerCase());
     if (existingUser) {
@@ -339,7 +348,7 @@ export const register = async (req, res, next) => {
       email: email.trim().toLowerCase(),
       password,
       farmName: farmName.trim(),
-      role: 'farmer'
+      role: normalizedRole
     });
 
     const token = generateToken(newUser);
